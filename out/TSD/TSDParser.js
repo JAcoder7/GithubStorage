@@ -1,15 +1,17 @@
 import { TSDElement } from "./TSDElement.js";
 export const TSDParser = {
     TOKENS: {
-        KEY: /^(?<val>[\w-]+)\s*(?<removed>\[rem\]|\[removed\])?\s*:/,
+        // note: /(?:[\p{Alphabetic}\d-]|\\.)+/u matches a key: any non alphabetic character ("-" neither) has to be escaped: "\:", "\/", "\["
+        KEY: /^(?<val>(?:[\p{Alphabetic}\d-]|\\.)+)\s*(?<removed>\[rem\]|\[removed\])?\s*:/u,
         BRACKET_OPEN: /^{/,
         BRACKET_CLOSE: /^}/,
         COMMA: /^,/,
-        STRING: /^"(?<val>[^"]*)"/,
+        STRING: /^"(?<val>.*)(?<!\\)"/,
         NUMBER: /^(?<val>\d+(\.\d*)?)/,
+        BOOLEAN: /^(?<val>true|false)/,
         NULL: /^null/,
         TIMESTAMP: /^\|\s*(?<val>\d+)/,
-        REFERENCE: /^(?<val>(\.){0,2}(\/(\w+|\.\.))+)/,
+        REFERENCE: /^(?<val>(\.){0,2}(\/(([\p{Alphabetic}\d-]|\\.)+|\.\.))+)/u,
     },
     parse: function (str) {
         let tokens = [];
@@ -38,14 +40,17 @@ export const TSDParser = {
                 }
                 value = elements;
                 if (tokens.splice(0, 1)[0].type != "BRACKET_CLOSE") {
-                    throw new SyntaxError("Unexpected Token: " + key.type + ".  Expected: BRACKET_CLOSE");
+                    throw new SyntaxError("Unexpected Token: " + tokens.splice(0, 1)[0].type + ".  Expected: BRACKET_CLOSE");
                 }
                 break;
             case "STRING":
-                value = valToken.groups.val;
+                value = valToken.groups.val.replaceAll("\\\"", "\"");
                 break;
             case "NUMBER":
                 value = Number(valToken.groups.val);
+                break;
+            case "BOOLEAN":
+                value = valToken.groups.val == "true";
                 break;
             case "NULL":
                 value = null;
@@ -60,7 +65,7 @@ export const TSDParser = {
         if (tokens[0]?.type == "TIMESTAMP") {
             lastModified = new Date(Number(tokens.splice(0, 1)[0].groups.val));
         }
-        let newElement = new TSDElement(key.groups.val, value, key.groups.removed != undefined, lastModified);
+        let newElement = new TSDElement(key.groups.val.replace(/\\(.)/gu, "$1"), value, key.groups.removed != undefined, lastModified);
         if (reference) {
             newElement.setReference(reference);
             newElement.lastModified = lastModified;

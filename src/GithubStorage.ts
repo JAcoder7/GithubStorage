@@ -20,6 +20,7 @@ export class GithubStorage {
     status: GithubStorageStatus;
 
     onStatusChange: Function;
+    onSynced: Function = () => { };
     onError: Function;
 
     autoSync: boolean;
@@ -106,6 +107,7 @@ export class GithubStorage {
                 this.setStatus(GithubStorageStatus.online);
                 this.saveToLocalData();
 
+                this.onSynced(this.data);
                 resolve(this.data);
             }).catch(error => {
                 console.info("Unable to load github data, switching to cache", error);
@@ -114,7 +116,9 @@ export class GithubStorage {
                 if (localData) {
                     this.setStatus(GithubStorageStatus.offline);
                     this.data = localData;
-                    resolve(this.data)
+                    
+                    this.onSynced(this.data);
+                    resolve(this.data);
                 } else {
                     if (this.data == null) {
                         this.setStatus(GithubStorageStatus.noData);

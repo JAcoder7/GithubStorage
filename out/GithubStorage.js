@@ -14,6 +14,7 @@ export class GithubStorage {
     isSyncing = false;
     status;
     onStatusChange;
+    onSynced = () => { };
     onError;
     autoSync;
     syncQueued = false;
@@ -83,6 +84,7 @@ export class GithubStorage {
                 });
                 this.setStatus(GithubStorageStatus.online);
                 this.saveToLocalData();
+                this.onSynced(this.data);
                 resolve(this.data);
             }).catch(error => {
                 console.info("Unable to load github data, switching to cache", error);
@@ -90,6 +92,7 @@ export class GithubStorage {
                 if (localData) {
                     this.setStatus(GithubStorageStatus.offline);
                     this.data = localData;
+                    this.onSynced(this.data);
                     resolve(this.data);
                 }
                 else {
