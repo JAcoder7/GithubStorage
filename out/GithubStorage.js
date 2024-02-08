@@ -10,11 +10,14 @@ export class GithubStorage {
     id = "";
     githubApi;
     path;
+    /** NEVER set this directly. ONLY USE .data */
     _data = null;
     isSyncing = false;
     status;
+    hasLocalOnlyChanges = false;
     onStatusChange;
     onSynced = () => { };
+    onUploadFailed = () => { };
     onError;
     autoSync;
     syncQueued = false;
@@ -25,14 +28,19 @@ export class GithubStorage {
         this.status = GithubStorageStatus.notLoaded;
         this.onStatusChange = onStatusChange;
         this.onError = onError;
-        hash(githubApi.token + githubApi.user + githubApi.repo + githubApi.branch + path, HashAlgorithm["SHA-1"]).then(v => {
-            this.id = v;
-        });
+        this.initializeId();
+    }
+    async initializeId() {
+        this.data = null;
+        this.id = hashCode(this.githubApi.token + this.githubApi.user + this.githubApi.repo + this.githubApi.branch + this.path).toString(16);
     }
     get data() {
         return this._data;
     }
     set data(v) {
+        if (this._data) {
+            this._data.onChange = () => { };
+        }
         this._data = v;
         if (this._data) {
             this._data.onChange = () => {
@@ -43,12 +51,12 @@ export class GithubStorage {
         }
     }
     setStatus(newStatus) {
-        if (this.status = newStatus)
-            return;
         this.onStatusChange(this.status, newStatus);
         this.status = newStatus;
     }
     async sync(overrideData = false) {
+        if (!this.isSaveToWrite())
+            return Promise.reject("Github API configuration has changed. Reinitialisation required.");
         if (this.data != null) {
             let localData = this.getLocalData();
             if (localData != null) {
@@ -57,17 +65,19 @@ export class GithubStorage {
             this.saveToLocalData();
         }
         if (this.isSyncing) {
-            console.log(this);
             this.syncQueued = true;
             return Promise.reject("Githubstorage is already loading");
         }
         this.isSyncing = true;
         return new Promise((resolve, reject) => {
+            if (!this.isSaveToWrite())
+                return Promise.reject("Github API configuration has changed. Reinitialisation required.");
             this.githubApi.getContentInfo(`${this.path}/data.tsd`).then(contentInfo => {
+                if (!this.isSaveToWrite())
+                    return Promise.reject("Github API configuration has changed. Reinitialisation required.");
                 // Load data
                 let content = this.githubApi.b64DecodeUnicode(contentInfo.content);
                 let loadedData = TSDParser.parse(content);
-                console.log(loadedData);
                 if (this.data != null && !overrideData) {
                     this.data.merge(loadedData);
                 }
@@ -78,18 +88,28 @@ export class GithubStorage {
                 if (localData != null) {
                     this.data.merge(localData);
                 }
+                let hadLocalOnlyChanges = this.hasLocalOnlyChanges;
+                this.hasLocalOnlyChanges = false;
                 // Upload data
+                if (!this.isSaveToWrite())
+                    return Promise.reject("Github API configuration has changed. Reinitialisation required.");
                 this.githubApi.updateFile(`${this.path}/data.tsd`, this.data.toString(), contentInfo.sha).catch(error => {
-                    this.onError("Upload Failed:", error); // TODO: Error Handling
+                    this.onUploadFailed(error);
+                    this.syncQueued = true;
+                    this.hasLocalOnlyChanges = this.hasLocalOnlyChanges || hadLocalOnlyChanges;
                 });
                 this.setStatus(GithubStorageStatus.online);
+                if (!this.isSaveToWrite())
+                    return Promise.reject("Github API configuration has changed. Reinitialisation required.");
                 this.saveToLocalData();
                 this.onSynced(this.data);
                 resolve(this.data);
             }).catch(error => {
+                if (!this.isSaveToWrite())
+                    return Promise.reject("Github API configuration has changed. Reinitialisation required.");
                 console.info("Unable to load github data, switching to cache", error);
                 let localData = this.getLocalData();
-                if (localData) {
+                if (localData && this.isSaveToWrite()) {
                     this.setStatus(GithubStorageStatus.offline);
                     this.data = localData;
                     this.onSynced(this.data);
@@ -109,6 +129,9 @@ export class GithubStorage {
                 }
             });
         });
+    }
+    isSaveToWrite() {
+        return (this.id == hashCode(this.githubApi.token + this.githubApi.user + this.githubApi.repo + this.githubApi.branch + this.path).toString(16));
     }
     getLocalData() {
         let stored = localStorage.getItem(`ghs_data_${this.id}`);
@@ -143,4 +166,19 @@ async function hash(string, algorithm = HashAlgorithm["SHA-256"]) {
         .map((bytes) => bytes.toString(16).padStart(2, '0'))
         .join('');
     return hashHex;
+}
+/**
+ * Returns a hash code from a string
+ * @param  {String} str The string to hash.
+ * @return {Number}    A 32bit integer
+ * @see http://werxltd.com/wp/2010/05/13/javascript-implementation-of-javas-string-hashcode-method/
+ */
+function hashCode(str) {
+    let hash = 0;
+    for (let i = 0, len = str.length; i < len; i++) {
+        let chr = str.charCodeAt(i);
+        hash = (hash << 5) - hash + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
 }
