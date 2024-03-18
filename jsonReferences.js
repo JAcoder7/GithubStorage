@@ -31,7 +31,7 @@ export function serializeReferences(obj, root = undefined) {
  * @param {object} parentObj 
  * @returns 
  */
-function findObjectPath(obj, parentObj) {
+export function findObjectPath(obj, parentObj) {
     for (const key in parentObj) {
         if (Object.hasOwnProperty.call(parentObj, key)) {
             if (!key.startsWith("$")) {
@@ -58,13 +58,14 @@ function getAtPath(obj, path) {
     return obj
 }
 export function deserializeReferences(obj, root) {
-    let clone =root?obj: structuredClone(obj)
+    let clone = root ? obj : structuredClone(obj)
     for (const key in clone) {
         if (Object.hasOwnProperty.call(clone, key)) {
             if (key.startsWith("$")) {
-                clone[key] = getAtPath(root || clone, clone[key])
+                const path = clone[key]
+                clone[key] = getAtPath(root || clone, path)
                 if (clone[key] == null) {
-                    throw new Error(`Cant find object reference '${key}' at path '${clone[key]}'`)
+                    throw new Error(`Cant find object reference '${key}' at path '${path}' in '${JSON.stringify(clone)}'`)
                 }
             } else if (typeof clone[key] == "object" && clone[key] !== null) {
                 clone[key] = deserializeReferences(clone[key], root || clone)
