@@ -109,8 +109,8 @@ export async function sync(saveAPI) {
             /** @type {import("./jsonDiff.js").Diff | null} */
             let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
             if (diff) {
-                diff.changed.splice(cLength)
-                diff.deleted.splice(dLength)
+                diff.changed.splice(0, cLength)
+                diff.deleted.splice(0, dLength)
                 localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
             }
         })
