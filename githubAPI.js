@@ -1,4 +1,4 @@
-export class GithubAPI {
+export default class GithubAPI {
     token;
     user;
     repo;
@@ -79,14 +79,21 @@ export class GithubAPI {
             const result = await response.json();
             return result;
         }
-        //this.logError(GithubStorageLogLevel.normal, response);
         return null;
     }
+    /**
+     * 
+     * @param {string} path 
+     * @param {string} content 
+     * @param {string | null | undefined} sha 
+     * @param {*} committer 
+     * @returns 
+     */
     async updateFile(path, content, sha = undefined, commitMessage = ("update " + path), committer = this.defaultCommitter) {
         const headers = {
             "Authorization": `Token ${this.token}`,
         };
-        if (sha == undefined) {
+        if (!sha) {
             let contentInfo = await this.getContentInfo(path).catch(e => { });
             sha = contentInfo?.sha;
         }
