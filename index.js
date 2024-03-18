@@ -94,6 +94,7 @@ export function save(saveAPI, obj) {
  * @returns {Promise<object | null>}
  */
 export async function sync(saveAPI) {
+    /** @type {import("./jsonDiff.js").Diff} */
     let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
     let data = (await saveAPI.loadData()) || JSON.parse(localStorage.getItem(saveAPI.getHash() + "_data") || "null")
     if (data == null) {
@@ -101,8 +102,17 @@ export async function sync(saveAPI) {
     }
     if (!isDiffEmpty(diff)) {
         data = applyDiff(data, diff)
+        let cLength = diff.changed.length
+        let dLength = diff.deleted.length
         saveAPI.saveData(data).then(() => {
-            localStorage.removeItem(saveAPI.getHash() + "_diff")
+            // FIXME only delete the part of diff that is uploaded not anything that might have been added in the meantime 
+            /** @type {import("./jsonDiff.js").Diff | null} */
+            let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
+            if (diff) {
+                diff.changed.splice(cLength)
+                diff.deleted.splice(dLength)
+                localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
+            }
         })
     }
     localStorage.setItem(saveAPI.getHash() + "_data", JSON.stringify(data))
