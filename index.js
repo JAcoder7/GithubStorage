@@ -94,23 +94,57 @@ export function save(saveAPI, obj) {
  * @returns {Promise<object | null>}
  */
 export async function sync(saveAPI) {
+    let syncId = uuidv4();
     /** @type {import("./jsonDiff.js").Diff} */
     let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
+    diff.changed = diff.changed.map(v => {
+        if (!v[2]) {
+            v[2] = syncId
+        }
+        return v
+    })
+    diff.deleted = diff.deleted.map(v => {
+        if (!v[1]) {
+            v[1] = syncId
+        }
+        return v
+    })
+    console.log("diff", diff);
+    localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
+    diff.changed = diff.changed.filter(v => v[2] == syncId)
+    diff.deleted = diff.deleted.filter(v => v[1] == syncId)
+    console.log("saving diff", syncId, diff);
     let data = (await saveAPI.loadData()) || JSON.parse(localStorage.getItem(saveAPI.getHash() + "_data") || "null")
     if (data == null) {
         return null
     }
     if (!isDiffEmpty(diff)) {
         data = applyDiff(data, diff)
-        let cLength = diff.changed.length
-        let dLength = diff.deleted.length
         saveAPI.saveData(data).then(() => {
-            // FIXME only delete the part of diff that is uploaded not anything that might have been added in the meantime 
             /** @type {import("./jsonDiff.js").Diff | null} */
             let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
             if (diff) {
-                diff.changed.splice(0, cLength)
-                diff.deleted.splice(0, dLength)
+                diff.changed = diff.changed.filter(v => v[2] != syncId)
+                diff.deleted = diff.deleted.filter(v => v[1] != syncId)
+
+                localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
+            }
+        }).catch(() => {
+            /** @type {import("./jsonDiff.js").Diff | null} */
+            let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
+            if (diff) {
+                diff.changed = diff.changed.map(v => {
+                    if (v[2] === syncId) {
+                        return [v[0], v[1]]
+                    }
+                    return v
+                })
+                diff.deleted = diff.deleted.map(v => {
+                    if (v[1] === syncId) {
+                        return [v[0]]
+                    }
+                    return v
+                })
                 localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
             }
         })
@@ -118,3 +152,9 @@ export async function sync(saveAPI) {
     localStorage.setItem(saveAPI.getHash() + "_data", JSON.stringify(data))
     return deserializeReferences(data)
 }
+
+export function uuidv4() {
+    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}  

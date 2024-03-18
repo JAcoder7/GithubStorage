@@ -2,9 +2,8 @@
 
 /**
  * @typedef {Object} Diff
- * @property {[string[], any][]} changed
- * @property {string[][]} deleted
- * 
+ * @property {[string[], any, string?][]} changed
+ * @property {[string[], string?][]} deleted
  */
 
 /**
@@ -14,9 +13,10 @@
  * @returns {Diff}
  */
 export function getDiff(oldObj, newObj) {
-    /** @type {[string[], any][]} */
+    /** @type {[string[], any, string?][]} */
     let changed = []
-    let deleted = Object.keys(oldObj).filter(k => newObj[k] === undefined).map(k => [k])
+    /** @type {[string[], string?][]} */
+    let deleted = Object.keys(oldObj).filter(k => newObj[k] === undefined).map(k => [[k]])
 
     for (const key of Object.keys(newObj)) {
         if (Array.isArray(newObj[key])&&newObj[key].find(v => typeof v == "object" && v !== null) !== undefined) {
@@ -30,7 +30,7 @@ export function getDiff(oldObj, newObj) {
                 return v
             }))
             deleted.push(...res.deleted.map(v => {
-                v = [key, ...v]
+                v[0] = [key, ...v[0]]
                 return v
             }))
         } else if (Array.isArray(oldObj[key]) && Array.isArray(newObj[key])) {
