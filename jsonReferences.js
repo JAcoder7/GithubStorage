@@ -48,7 +48,7 @@ export function findObjectPath(obj, parentObj) {
     }
     return null
 }
-function getAtPath(obj, path) {
+export function getAtPath(obj, path) {
     for (const key of path) {
         if (obj == null) {
             return null
