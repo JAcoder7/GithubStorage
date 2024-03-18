@@ -36,7 +36,7 @@ export function findObjectPath(obj, parentObj) {
         if (Object.hasOwnProperty.call(parentObj, key)) {
             if (!key.startsWith("$")) {
                 if (obj === parentObj[key]) {
-                    return key;
+                    return [key];
                 } else if (typeof parentObj[key] == "object" && obj[key] !== null) {
                     let res = findObjectPath(obj, parentObj[key])
                     if (res !== null) {
