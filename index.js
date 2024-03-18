@@ -161,7 +161,19 @@ export async function sync(saveAPI) {
 }
 
 export function uuidv4() {
-    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-}  
+    // Generate 16 random bytes
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+
+    // Set the version (4) and variant (10) bits
+    randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40;
+    randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80;
+
+    // Convert to base64url format
+    const base64url = btoa(String.fromCharCode(...randomBytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+    return base64url;
+}
