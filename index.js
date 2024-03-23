@@ -9,7 +9,7 @@ export class SaveAPIGithub {
     path = "";
     /** @type {string | null} */
     sha = null;
-    isUploading = false
+    isSaving = false
 
     /**
      * @param {string} token 
@@ -38,12 +38,12 @@ export class SaveAPIGithub {
      * @param {object} data 
      */
     async saveData(data) {
-        if (this.isUploading) return Promise.reject("Cant upload multiple times simultaneously")
-        this.isUploading = true
+        if (this.isSaving) return Promise.reject("Cant upload multiple times simultaneously")
+        this.isSaving = true
         if (!this.ghAPI) throw new ReferenceError("ghApi is null")
         if (typeof this.sha !== "string") return Promise.reject("Cant save data: sha not loaded")
         return new Promise((resolve, reject) => {
-            this.ghAPI?.updateFile(`${this.path}/data.json`, JSON.stringify(data), this.sha).catch(error => reject(error)).then(v => resolve(v)).finally(() => { this.isUploading = false })
+            this.ghAPI?.updateFile(`${this.path}/data.json`, JSON.stringify(data), this.sha).catch(error => reject(error)).then(v => resolve(v)).finally(() => { this.isSaving = false })
         })
     }
 
@@ -93,10 +93,11 @@ export function save(saveAPI, obj) {
 
 /**
  * load data and upload local changes
- * @param {{loadData: ()=>Promise<object | null>, saveData: (data: object)=>Promise<any>, getHash: ()=>string}} saveAPI 
+ * @param {{loadData: ()=>Promise<object | null>, saveData: (data: object)=>Promise<any>, getHash: ()=>string, isSaving: boolean}} saveAPI 
  * @returns {Promise<object | null>}
  */
 export async function sync(saveAPI) {
+    if (saveAPI.isSaving) return Promise.reject("Cant sync while save is in progress")
     let syncId = uuidv4();
     /** @type {import("./jsonDiff.js").Diff} */
     let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
@@ -117,6 +118,7 @@ export async function sync(saveAPI) {
     diff.deleted = diff.deleted.filter(v => v[1] == syncId)
 
     let data = (await saveAPI.loadData()) || JSON.parse(localStorage.getItem(saveAPI.getHash() + "_data") || "null")
+    if (saveAPI.isSaving) return Promise.reject("Cant sync while save is in progress")
     if (data == null) {
         return null
     }
