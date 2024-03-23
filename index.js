@@ -98,24 +98,17 @@ export function save(saveAPI, obj) {
  */
 export async function sync(saveAPI) {
     if (saveAPI.isSaving) return Promise.reject("Cant sync while save is in progress")
-    let syncId = uuidv4();
     /** @type {import("./jsonDiff.js").Diff} */
     let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
     diff.changed = diff.changed.map(v => {
-        if (!v[2]) {
-            v[2] = syncId
-        }
+        v[2] = true
         return v
     })
     diff.deleted = diff.deleted.map(v => {
-        if (!v[1]) {
-            v[1] = syncId
-        }
+        v[1] = true
         return v
     })
     localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
-    diff.changed = diff.changed.filter(v => v[2] == syncId)
-    diff.deleted = diff.deleted.filter(v => v[1] == syncId)
 
     let data = (await saveAPI.loadData()) || JSON.parse(localStorage.getItem(saveAPI.getHash() + "_data") || "null")
     if (saveAPI.isSaving) return Promise.reject("Cant sync while save is in progress")
@@ -128,8 +121,8 @@ export async function sync(saveAPI) {
             /** @type {import("./jsonDiff.js").Diff | null} */
             let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
             if (diff) {
-                diff.changed = diff.changed.filter(v => v[2] != syncId)
-                diff.deleted = diff.deleted.filter(v => v[1] != syncId)
+                diff.changed = diff.changed.filter(v => !v[2]) // delete changes that have been saved
+                diff.deleted = diff.deleted.filter(v => !v[1])
 
                 localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
             }
@@ -138,16 +131,10 @@ export async function sync(saveAPI) {
             let diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || 'null');
             if (diff) {
                 diff.changed = diff.changed.map(v => {
-                    if (v[2] === syncId) {
-                        return [v[0], v[1]]
-                    }
-                    return v
+                    return [v[0], v[1]]
                 })
                 diff.deleted = diff.deleted.map(v => {
-                    if (v[1] === syncId) {
-                        return [v[0]]
-                    }
-                    return v
+                    return [v[0]]
                 })
                 localStorage.setItem(saveAPI.getHash() + "_diff", JSON.stringify(diff))
             }
@@ -156,8 +143,8 @@ export async function sync(saveAPI) {
     localStorage.setItem(saveAPI.getHash() + "_data", JSON.stringify(data))
 
     diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
-    diff.changed = diff.changed.filter(v => v[2] != syncId)
-    diff.deleted = diff.deleted.filter(v => v[1] != syncId)
+    diff.changed = diff.changed.filter(v => !v[2])
+    diff.deleted = diff.deleted.filter(v => !v[1])
     data = applyDiff(data, diff)
     return deserializeReferences(data)
 }

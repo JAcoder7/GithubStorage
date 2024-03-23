@@ -2,8 +2,9 @@
 
 /**
  * @typedef {Object} Diff
- * @property {[string[], any, string?][]} changed
- * @property {[string[], string?][]} deleted
+ * (The optional boolean indicates if the change is currently being uploaded)
+ * @property {[string[], any, boolean?][]} changed
+ * @property {[string[], boolean?][]} deleted
  */
 
 /**
@@ -13,9 +14,9 @@
  * @returns {Diff}
  */
 export function getDiff(oldObj, newObj) {
-    /** @type {[string[], any, string?][]} */
+    /** @type {[string[], any, boolean?][]} */
     let changed = []
-    /** @type {[string[], string?][]} */
+    /** @type {[string[], boolean?][]} */
     let deleted = Object.keys(oldObj).filter(k => newObj[k] === undefined).map(k => [[k]])
 
     for (const key of Object.keys(newObj)) {
