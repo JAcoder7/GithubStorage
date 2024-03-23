@@ -143,8 +143,6 @@ export async function sync(saveAPI) {
     localStorage.setItem(saveAPI.getHash() + "_data", JSON.stringify(data))
 
     diff = JSON.parse(localStorage.getItem(saveAPI.getHash() + "_diff") || '{"changed":[],"deleted":[]}');
-    diff.changed = diff.changed.filter(v => !v[2])
-    diff.deleted = diff.deleted.filter(v => !v[1])
     data = applyDiff(data, diff)
     return deserializeReferences(data)
 }
